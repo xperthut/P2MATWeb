@@ -15,6 +15,9 @@ Every molecule goes through the same steps:
 
 1. Parse the SMILES and re-parse its canonical form, so the atom order (and
    therefore the 3D embedding) does not depend on how the input was written.
+   Disconnected SMILES (mixtures / salts, written with ``.``) are rejected:
+   their melting/boiling point is not a property of one structure, and
+   distance-based descriptors are undefined for them.
 2. ``mode="2d"``: RDKit 2D descriptors (``rd_``) + Mordred 2D (``md_``).
 3. ``mode="3d"``: additionally embed one conformer (ETKDGv3, fixed seed, MMFF
    optimisation with UFF fallback) and add RDKit 3D shape descriptors
@@ -36,6 +39,8 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Descriptors, rdMolDescriptors
 
 warnings.filterwarnings("ignore")
+# Bump when the features change, so cached features are recomputed.
+FEATURIZER_VERSION: int = 2
 RDLogger.DisableLog("rdApp.*")
 
 RANDOM_SEED: int = 42
@@ -77,10 +82,19 @@ def _to_float(value) -> float:
     return v if math.isfinite(v) else math.nan
 
 
-def prepare_mol(smiles: str):
-    """Parse *smiles* into a canonical RDKit Mol, or return ``None``."""
+def is_disconnected(smiles: str) -> bool:
+    """True if *smiles* parses to more than one fragment (mixture / salt)."""
     mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
+    return mol is not None and len(Chem.GetMolFrags(mol)) > 1
+
+
+def prepare_mol(smiles: str):
+    """Parse *smiles* into a canonical RDKit Mol.
+
+    Returns ``None`` if the SMILES is invalid or disconnected.
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None or len(Chem.GetMolFrags(mol)) > 1:
         return None
     return Chem.MolFromSmiles(Chem.MolToSmiles(mol))
 
@@ -124,8 +138,8 @@ def featurize(smiles: str, mode: str = "2d"):
 
     Returns:
         An ``OrderedDict`` mapping column name to float (NaN for failed
-        descriptors), or ``None`` if the SMILES is invalid or (3D) the
-        molecule cannot be embedded.
+        descriptors), or ``None`` if the SMILES is invalid or disconnected,
+        or (3D) the molecule cannot be embedded.
     """
     if mode not in ("2d", "3d"):
         raise ValueError(f"mode must be '2d' or '3d', got {mode!r}")
@@ -137,6 +151,9 @@ def featurize(smiles: str, mode: str = "2d"):
     feats = OrderedDict()
     for name, value in Descriptors.CalcMolDescriptors(mol).items():
         feats[f"rd_{name}"] = _to_float(value)
+    # Raw Ipc grows exponentially with size (up to ~1e29 here) and swamps
+    # linear models; the averaged form is the usual bounded replacement.
+    feats["rd_Ipc"] = _to_float(Descriptors.Ipc(mol, avg=True))
 
     target = mol
     if mode == "3d":
