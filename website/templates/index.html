@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P2MAT Property Prediction</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <img class="logo" src="{{ url_for('design_asset', filename='snl-logo-inline.svg') }}" alt="Sandia National Laboratories">
+      <span class="app-name">P2MAT <span class="app-sub">Material property prediction</span></span>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="predict-form" class="card" novalidate>
+      <div class="field">
+        <div class="label-row">
+          <label for="smiles">SMILES <span class="hint">one per line</span></label>
+          <button type="button" id="load-example" class="link-btn">Load examples</button>
+        </div>
+        <textarea id="smiles" rows="8" spellcheck="false" autocomplete="off"
+                  placeholder="e.g. CCO"></textarea>
+        <div class="hint" id="smiles-count">0 molecules</div>
+      </div>
+
+      <fieldset class="field props">
+        <legend>Properties to predict</legend>
+        {% for key, label in props.items() %}
+        <label class="check">
+          <input type="checkbox" name="props" value="{{ key }}" checked>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" id="predict-btn" class="btn primary">Predict properties</button>
+      </div>
+    </form>
+
+    <section id="progress" class="card" hidden aria-live="polite">
+      <div class="progress-head">
+        <span id="status-text">Starting…</span>
+        <span id="progress-count" class="hint"></span>
+      </div>
+      <div class="bar"><div id="bar-fill" class="bar-fill"></div></div>
+    </section>
+
+    <section id="messages" class="card notice" hidden>
+      <div id="error-box" class="error" hidden></div>
+      <div id="invalid-box" hidden>
+        <p>These SMILES were invalid or could not be processed:</p>
+        <ol id="invalid-list"></ol>
+      </div>
+    </section>
+
+    <section id="results" class="card" hidden>
+      <div class="results-head">
+        <h2>Results <span id="result-count" class="hint"></span></h2>
+        <a id="download-btn" class="btn" href="#" download>Download CSV</a>
+      </div>
+      <div class="table-wrap">
+        <table id="result-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
