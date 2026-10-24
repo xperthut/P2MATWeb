@@ -24,3 +24,5 @@ CLAUDE.md
 *.pptx
 
 __pycache__/
+
+ModelTrain/
