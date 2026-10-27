@@ -44,3 +44,5 @@ dependencies:
         - padelpy
         - mordredcommunity
         - kneed
+        - scikit-optimize
+        - Boruta
